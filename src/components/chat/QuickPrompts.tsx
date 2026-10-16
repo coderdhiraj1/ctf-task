@@ -8,19 +8,24 @@ interface QuickPromptsProps {
 
 const PROMPTS = [
   {
-    label: 'Single Action with Due Date & Priority',
+    label: 'Query: What to deliver today',
+    text: 'What do I need to deliver today?',
+  },
+  {
+    label: 'Query: Low-hanging fruit',
+    text: 'I have one hour, give me the low-hanging fruit',
+  },
+  {
+    label: 'Complete: Vendor email done',
+    text: 'I finished the vendor email',
+  },
+  {
+    label: 'Query: Overdue tasks',
+    text: "What's overdue?",
+  },
+  {
+    label: 'Create: Verbal commitment',
     text: 'Sarah asked me to review the checkout PR by Friday. Medium priority.',
-  },
-  {
-    label: 'Multi-Task Compound Statement',
-    text: 'John will update the API docs tomorrow and Priya needs to investigate the production timeout issue by Monday.',
-  },
-  {
-    label: 'Rough Meeting Action Items',
-    text: `Meeting Notes:
-- Marcus: Fix sentinel split-brain failover in Redis by tomorrow (High priority, Medium effort)
-- Elena: Revise annual plan copy for customer onboarding by Friday (Low priority)
-- Self: Instrument OpenTelemetry spans on checkout before EOD (Medium effort)`,
   },
 ];
 

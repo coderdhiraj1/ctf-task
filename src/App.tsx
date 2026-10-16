@@ -9,7 +9,7 @@ import {
   loadSettingsFromStorage,
   saveSettingsToStorage,
 } from './utils/storage';
-import { processCommitments } from './services/taskService';
+import { handleUserChatAction } from './services/taskService';
 import { Header } from './components/Header';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { TaskBoard } from './components/board/TaskBoard';
@@ -73,55 +73,64 @@ export const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const result = await processCommitments(text, settings);
+      const actionResult = await handleUserChatAction(text, tasks, settings);
 
-      if (result.tasks.length > 0) {
+      if (actionResult.type === 'create_tasks') {
         // Prepend new tasks to board
-        setTasks(prev => [...result.tasks, ...prev]);
+        setTasks(prev => [...actionResult.tasks, ...prev]);
 
         // Highlight newly created tasks
-        const newIds = result.tasks.map(t => t.id);
+        const newIds = actionResult.tasks.map(t => t.id);
         setHighlightedTaskIds(newIds);
         setTimeout(() => {
           setHighlightedTaskIds([]);
         }, 3200);
 
-        // Assistant response
-        let replyContent = `I extracted ${result.tasks.length} actionable ${
-          result.tasks.length === 1 ? 'commitment' : 'commitments'
-        } and added ${result.tasks.length === 1 ? 'it' : 'them'} to your live board.`;
-
-        if (result.warningMessage) {
-          replyContent += `\n\nNote: ${result.warningMessage}`;
-        }
-
         const assistantMsg: ChatMessageType = {
           id: `msg-assistant-${Date.now()}`,
           sender: 'assistant',
-          content: replyContent,
+          content: actionResult.assistantMessage,
           timestamp: new Date().toISOString(),
           createdTaskIds: newIds,
-          parsedMethod: result.method,
+          parsedMethod: actionResult.method,
         };
-
         setMessages(prev => [...prev, assistantMsg]);
-      } else {
+      } else if (actionResult.type === 'complete_task') {
+        // Mark task Completed immediately on board
+        const taskId = actionResult.completedTask.id;
+        setTasks(prev =>
+          prev.map(t => (t.id === taskId ? { ...t, status: 'Completed' } : t))
+        );
+
+        // Highlight the completed task on board
+        setHighlightedTaskIds([taskId]);
+        setTimeout(() => {
+          setHighlightedTaskIds([]);
+        }, 3200);
+
         const assistantMsg: ChatMessageType = {
           id: `msg-assistant-${Date.now()}`,
           sender: 'assistant',
-          content:
-            "I couldn't identify any clear actionable commitments or assignments in that text. Try including who asked, what needs to be done, or a deadline (e.g., 'Dave asked me to fix the webhook by tomorrow').",
+          content: actionResult.assistantMessage,
           timestamp: new Date().toISOString(),
-          isError: true,
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+      } else {
+        // query_response, clarification, no_match, or conversation
+        const assistantMsg: ChatMessageType = {
+          id: `msg-assistant-${Date.now()}`,
+          sender: 'assistant',
+          content: actionResult.assistantMessage,
+          timestamp: new Date().toISOString(),
         };
         setMessages(prev => [...prev, assistantMsg]);
       }
     } catch (err: any) {
-      console.error('Task parsing error:', err);
+      console.error('Task action error:', err);
       const assistantMsg: ChatMessageType = {
         id: `msg-assistant-${Date.now()}`,
         sender: 'assistant',
-        content: `Encountered an error while extracting tasks: ${err?.message || 'Unknown error'}. Please try again.`,
+        content: `Encountered an error: ${err?.message || 'Unknown error'}. Please try again.`,
         timestamp: new Date().toISOString(),
         isError: true,
       };

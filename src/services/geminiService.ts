@@ -179,3 +179,76 @@ function normalizeEffort(val: any): TaskEffort {
   if (s.includes('small') || s.includes('quick') || s.includes('trivial')) return 'Small';
   return 'Medium';
 }
+
+export interface GeminiIntentClassification {
+  intent: 'query_today' | 'query_overdue' | 'query_low_hanging_fruit' | 'complete_task' | 'create_task' | 'conversation';
+  targetTaskTitle?: string;
+  conversationReply?: string;
+}
+
+export async function classifyIntentWithGemini(
+  input: string,
+  currentTasks: Array<{ id: string; title: string; status: string; priority: string; effort: string; dueDate: string }>,
+  apiKey: string,
+  modelName: string = 'gemini-1.5-flash'
+): Promise<GeminiIntentClassification | null> {
+  if (!apiKey || !apiKey.trim()) return null;
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      modelName
+    )}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+
+    const taskListSummary = currentTasks
+      .slice(0, 20)
+      .map(t => `- [${t.status}] "${t.title}" (${t.priority}, ${t.effort}, Due: ${t.dueDate})`)
+      .join('\n');
+
+    const prompt = `You are the intent classifier for CommitDesk.
+Given user input and the current list of tasks on the board:
+Current tasks:
+${taskListSummary}
+
+User input:
+"""${input}"""
+
+Determine the user's intent:
+- "query_today": User asks what to deliver/finish/do today, what's due today, what is on their plate today.
+- "query_overdue": User asks what tasks are overdue.
+- "query_low_hanging_fruit": User asks for low-hanging fruit, quick wins, small tasks, or has limited time (e.g. 1 hour).
+- "complete_task": User says they finished, completed, or want to mark a specific task as done (e.g. "I finished the vendor email"). Set targetTaskTitle to the task name.
+- "conversation": Normal conversation, greeting, thanks, or general question not managing tasks.
+- "create_task": User is assigning a new task, pasting meeting notes, verbal commitments, or asking to create/add a task.
+
+Respond ONLY with valid JSON matching:
+{
+  "intent": "query_today" | "query_overdue" | "query_low_hanging_fruit" | "complete_task" | "create_task" | "conversation",
+  "targetTaskTitle": "string",
+  "conversationReply": "string"
+}`;
+
+    const payload = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.1,
+      },
+    };
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawText) return null;
+    return JSON.parse(rawText) as GeminiIntentClassification;
+  } catch (err) {
+    console.warn('Gemini intent classification fallback to local:', err);
+    return null;
+  }
+}
+

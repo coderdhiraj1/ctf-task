@@ -27,9 +27,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Determine if an environment variable key is currently present
   const { source: activeSource, key: activeKey } = getActiveApiKey(settings);
-  const hasEnvKey =
-    Boolean(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY) &&
-    !String(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY).includes('your_gemini_api_key');
+  const hasEnvKey = activeSource === 'env';
 
   useEffect(() => {
     if (isOpen) {

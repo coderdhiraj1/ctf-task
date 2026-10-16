@@ -23,6 +23,14 @@ export function parseLocally(input: string): ParseResult {
   let rawSegments: string[] = [];
 
   for (const line of rawLines) {
+    // Skip common meeting note header prefixes
+    if (
+      /^(?:meeting\s+notes?|action\s+items?|standup\s+notes?|notes?|todos?|tasks?|summary):\s*$/i.test(line.trim()) ||
+      /^(?:meeting\s+notes?|action\s+items?|standup\s+notes?|summary)$/i.test(line.trim())
+    ) {
+      continue;
+    }
+
     // Strip bullet markers (-, *, •, 1., 2), etc.)
     const cleanedLine = line.replace(/^[-*•\d+.)\]\s]+/, '').trim();
     if (!cleanedLine) continue;
@@ -132,6 +140,7 @@ function parseSingleSegment(text: string): ExtractedTaskCandidate {
   // Remove requester prefix if embedded
   cleanTitle = cleanTitle.replace(/^[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s+(?:asked(?:\s+me)?\s+to|told(?:\s+me)?\s+to|requested(?:\s+that\s+we)?|needs\s+to|wants\s+us\s+to|will|suggested(?:\s+we)?)\s+/i, '');
   cleanTitle = cleanTitle.replace(/^I\s+(?:will|need\s+to|must|should|promised\s+to)\s+/i, '');
+  cleanTitle = cleanTitle.replace(/^(?:create|add|make)(?:\s+a)?\s+task\s+(?:to\s+|for\s+)?/i, '');
 
   // Remove priority and effort phrases
   cleanTitle = cleanTitle.replace(/\((?:priority:\s*)?(?:critical|high|medium|low)(?:\s+priority)?(?:,\s*(?:effort:\s*)?(?:small|medium|large)(?:\s+effort)?)?\)/gi, '');
